@@ -5,9 +5,9 @@ from io import BytesIO
 import os
 
 # 1. 웹페이지 레이아웃 및 타이틀 설정
-st.set_page_config(page_title="입고 데이터 맞춤형 생산성 분석기", layout="centered")
+st.set_page_config(page_title="입고 입력 생산성 분석기", layout="centered")
 
-st.title("🏭 입고 처리 맞춤형 생산성 분석 프로그램")
+st.title("🏭 입고 입력 생산성 분석 프로그램")
 st.write("엑셀 파일을 업로드하고 기준 초를 지정하여 생산성을 분석해 보세요.")
 
 # 2. 파일 업로드 및 기준 초 입력 섹션
@@ -15,12 +15,12 @@ uploaded_file = st.file_uploader("입고내역 엑셀 파일(xlsx)을 업로드�
 
 # 사용자가 기준 초를 직접 입력할 수 있는 숫자 입력창 추가 (기본값은 60초)
 target_seconds = st.number_input(
-    "🔄 분절(이탈) 기준 초를 입력해 주세요.",
+    "🔄 작업시간 기준(초)를 입력해 주세요.",
     min_value=1,
     max_value=3600,
     value=60,
     step=1,
-    help="이 초를 초과하여 발생한 공백은 작업 이탈(쉬는 시간)로 간주하여 생산성 분모에서 제외합니다."
+    help="해당 기준 초를 초과하는 작업은 (쉬는 시간 or 특이)로 간주하여 생산성 계산식 내 (작업시간)에서 제외합니다."
 )
 
 if uploaded_file is not None:
@@ -30,7 +30,7 @@ if uploaded_file is not None:
     base_file_name = os.path.splitext(uploaded_file.name)[0]
 
     # 3. 분석 시작 버튼
-    if st.button("🚀 맞춤형 생산성 분석 시작"):
+    if st.button("입고 입력 생산성 분석 시작"):
         try:
             # 로딩 애니메이션 구현
             with st.spinner(f'데이터 정제 및 {target_seconds}초 기준 생산성 지표를 계산 중입니다...'):
@@ -131,7 +131,7 @@ if uploaded_file is not None:
 
             # 성공 이펙트 및 안내
             st.balloons()
-            st.success("✨ 맞춤형 분석이 성공적으로 끝났습니다!")
+            st.success("분석 성공")
 
             # 요청하신 정확한 저장명 포맷 생성
             # 예: 26-06-23작업자별 생산성분석_60초기준 결과.xlsx
@@ -146,5 +146,5 @@ if uploaded_file is not None:
             )
 
         except Exception as e:
-            st.error(f"⚠️ 처리 중 에러가 발생했습니다: {e}")
+            st.error(f"⚠️처리 중 에러가 발생했습니다: {e}")
             st.info("엑셀 파일의 열 이름들을 다시 확인해 주세요.")
