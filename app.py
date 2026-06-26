@@ -62,16 +62,18 @@ if uploaded_files:
                         # [단계 1] 데이터 로드 및 시트 3, 시트 4 정의 (정렬 및 유니크)
                         # =====================================================================
                         df = pd.read_excel(uploaded_file)
+                        
+                        # 💡 [필터 추가] 최초입고처리자가 결측치(NaN)인 행은 완전히 제거
+                        df = df.dropna(subset=['최초입고처리자']).copy()
+                        
                         df['최초입고처리시간'] = pd.to_datetime(df['최초입고처리시간'])
 
                         # 1-1. [시트 3 데이터] 작업자별 ➔ 최초입고처리시간 오름차순 정렬 (중복 제거 없음)
-                        sheet3_df = df.sort_values(by=['최초입고처리자', '최초입고처리시간'], ascending=[True, True]).reset_index(
-                            drop=True)
+                        sheet3_df = df.sort_values(by=['최초입고처리자', '최초입고처리시간'], ascending=[True, True]).reset_index(drop=True)
 
                         # 1-2. [시트 4 데이터] 작업자별 ➔ 최초입고처리시간 오름차순 정렬 후 사입바코드 유니크 추출
                         sheet4_df = sheet3_df.sort_values(by=['최초입고처리자', '최초입고처리시간'], ascending=[True, True])
-                        sheet4_df = sheet4_df.drop_duplicates(subset=['최초입고처리자', '사입바코드'],
-                                                              keep='first').copy().reset_index(drop=True)
+                        sheet4_df = sheet4_df.drop_duplicates(subset=['최초입고처리자', '사입바코드'], keep='first').copy().reset_index(drop=True)
 
                         # =====================================================================
                         # [단계 2] 유니크 데이터(시트4)를 기준으로 통계 및 상세작업시간 가공
@@ -79,13 +81,11 @@ if uploaded_files:
                         processors = sheet4_df['최초입고처리자'].unique()
 
                         columns_to_combine = []  # 시트 5용 (상세작업시간)
-                        stat_records = []  # 시트 1용 (생산성분석 요약)
-                        detailed_records = []  # 시트 2용 (생산성_상세 구간 통계)
+                        stat_records = []        # 시트 1용 (생산성분석 요약)
+                        detailed_records = []    # 시트 2용 (생산성_상세 구간 통계)
 
                         for processor in processors:
-                            p_df = sheet4_df[sheet4_df['최초입고처리자'] == processor].copy().sort_values('최초입고처리시간',
-                                                                                                   ascending=True).reset_index(
-                                drop=True)
+                            p_df = sheet4_df[sheet4_df['최초입고처리자'] == processor].copy().sort_values('최초입고처리시간', ascending=True).reset_index(drop=True)
 
                             # 직전 행(전)과 현재 행(후) 데이터 매칭
                             p_df['사입바코드_전'] = p_df['사입바코드'].shift(1)
@@ -134,8 +134,9 @@ if uploaded_files:
                             # 총 작업수 (+1 보정)
                             job_count = count_under_target + count_over_target + 1
 
+                            # 💡 [공식 정정] 전체 작업수(job_count) 대신 (기준내 작업수 + 1)을 분자에 반영
                             if sum_time_under_target > 0:
-                                productivity_sec = job_count / sum_time_under_target
+                                productivity_sec = (count_under_target + 1) / sum_time_under_target
                                 productivity_hour = productivity_sec * 3600
                             else:
                                 productivity_sec = 0
@@ -170,8 +171,6 @@ if uploaded_files:
                         # =====================================================================
                         # [단계 3] 엑셀 파일 내 시트 이름 동적 생성 후 내보내기 (최대 31자 제한 고려)
                         # =====================================================================
-                        # 여러 파일 업로드 시 파일명을 구별할 수 있게 접두사를 붙여줍니다.
-                        # 파일이 딱 1개일 경우 깔끔하게 접두사 없이 기본 이름으로 시트명을 생성합니다.
                         prefix = f"{base_file_name}_" if len(sorted_files) > 1 else ""
 
                         sheet1_df.to_excel(writer, sheet_name=f'{prefix}생산성분석', index=False)
