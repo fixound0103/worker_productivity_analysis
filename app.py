@@ -54,7 +54,7 @@ if uploaded_files:
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
 
                     for uploaded_file in sorted_files:
-                        # 원본 파일명에서 확장자 제거 (예: '26-06-23')
+                        # 원본 파일명에서 확장자 제거
                         base_file_name = os.path.splitext(uploaded_file.name)[0]
                         file_names_summary.append(base_file_name)
 
@@ -62,13 +62,9 @@ if uploaded_files:
                         # [단계 1] 데이터 로드 및 시트 3, 시트 4 정의 (정렬 및 유니크)
                         # =====================================================================
                         df = pd.read_excel(uploaded_file)
-                        
-                        # 💡 [필터 추가] 최초입고처리자가 결측치(NaN)인 행은 완전히 제거
-                        df = df.dropna(subset=['최초입고처리자']).copy()
-                        
                         df['최초입고처리시간'] = pd.to_datetime(df['최초입고처리시간'])
 
-                        # 1-1. [시트 3 데이터] 작업자별 ➔ 최초입고처리시간 오름차순 정렬 (중복 제거 없음)
+                        # 1-1. [시트 3 데이터] 작업자별 ➔ 최초입고처리시간 오름차순 정렬 (중복 제거 없음, 원본 유지)
                         sheet3_df = df.sort_values(by=['최초입고처리자', '최초입고처리시간'], ascending=[True, True]).reset_index(drop=True)
 
                         # 1-2. [시트 4 데이터] 작업자별 ➔ 최초입고처리시간 오름차순 정렬 후 사입바코드 유니크 추출
@@ -134,7 +130,7 @@ if uploaded_files:
                             # 총 작업수 (+1 보정)
                             job_count = count_under_target + count_over_target + 1
 
-                            # 💡 [공식 정정] 전체 작업수(job_count) 대신 (기준내 작업수 + 1)을 분자에 반영
+                            # 생산성 공식 정정 반영
                             if sum_time_under_target > 0:
                                 productivity_sec = (count_under_target + 1) / sum_time_under_target
                                 productivity_hour = productivity_sec * 3600
@@ -164,12 +160,20 @@ if uploaded_files:
                             detailed_record['총수량'] = len(p_df)
                             detailed_records.append(detailed_record)
 
+                        # 데이터프레임 변환
                         sheet1_df = pd.DataFrame(stat_records)
                         sheet2_df = pd.DataFrame(detailed_records)
                         sheet5_df = pd.concat(columns_to_combine, axis=1) if columns_to_combine else pd.DataFrame()
 
+                        # 💡 [필터 추가] 시트1과 시트2 데이터에서 작업자명이 nan이거나 공백인 행만 골라내기
+                        # 원본 시트(시트3, 시트4)에는 빈 값 데이터가 그대로 유지됩니다.
+                        if not sheet1_df.empty:
+                            sheet1_df = sheet1_df[sheet1_df['작업자명'].notna() & (sheet1_df['작업자명'].astype(str).str.strip() != '') & (sheet1_df['작업자명'].astype(str).str.lower() != 'nan')]
+                        if not sheet2_df.empty:
+                            sheet2_df = sheet2_df[sheet2_df['작업자명'].notna() & (sheet2_df['작업자명'].astype(str).str.strip() != '') & (sheet2_df['작업자명'].astype(str).str.lower() != 'nan')]
+
                         # =====================================================================
-                        # [단계 3] 엑셀 파일 내 시트 이름 동적 생성 후 내보내기 (최대 31자 제한 고려)
+                        # [단계 3] 엑셀 파일 내 시트 이름 동적 생성 후 내보내기
                         # =====================================================================
                         prefix = f"{base_file_name}_" if len(sorted_files) > 1 else ""
 
