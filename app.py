@@ -65,11 +65,13 @@ if uploaded_files:
                         df['최초입고처리시간'] = pd.to_datetime(df['최초입고처리시간'])
 
                         # 1-1. [시트 3 데이터] 작업자별 ➔ 최초입고처리시간 오름차순 정렬 (중복 제거 없음, 원본 유지)
-                        sheet3_df = df.sort_values(by=['최초입고처리자', '최초입고처리시간'], ascending=[True, True]).reset_index(drop=True)
+                        sheet3_df = df.sort_values(by=['최초입고처리자', '최초입고처리시간'], ascending=[True, True]).reset_index(
+                            drop=True)
 
                         # 1-2. [시트 4 데이터] 작업자별 ➔ 최초입고처리시간 오름차순 정렬 후 사입바코드 유니크 추출
                         sheet4_df = sheet3_df.sort_values(by=['최초입고처리자', '최초입고처리시간'], ascending=[True, True])
-                        sheet4_df = sheet4_df.drop_duplicates(subset=['최초입고처리자', '사입바코드'], keep='first').copy().reset_index(drop=True)
+                        sheet4_df = sheet4_df.drop_duplicates(subset=['최초입고처리자', '사입바코드'],
+                                                              keep='first').copy().reset_index(drop=True)
 
                         # =====================================================================
                         # [단계 2] 유니크 데이터(시트4)를 기준으로 통계 및 상세작업시간 가공
@@ -77,11 +79,13 @@ if uploaded_files:
                         processors = sheet4_df['최초입고처리자'].unique()
 
                         columns_to_combine = []  # 시트 5용 (상세작업시간)
-                        stat_records = []        # 시트 1용 (생산성분석 요약)
-                        detailed_records = []    # 시트 2용 (생산성_상세 구간 통계)
+                        stat_records = []  # 시트 1용 (생산성분석 요약)
+                        detailed_records = []  # 시트 2용 (생산성_상세 구간 통계)
 
                         for processor in processors:
-                            p_df = sheet4_df[sheet4_df['최초입고처리자'] == processor].copy().sort_values('최초입고처리시간', ascending=True).reset_index(drop=True)
+                            p_df = sheet4_df[sheet4_df['최초입고처리자'] == processor].copy().sort_values('최초입고처리시간',
+                                                                                                   ascending=True).reset_index(
+                                drop=True)
 
                             # 직전 행(전)과 현재 행(후) 데이터 매칭
                             p_df['사입바코드_전'] = p_df['사입바코드'].shift(1)
@@ -127,12 +131,12 @@ if uploaded_files:
                             count_over_target = df_over_target.shape[0]
                             sum_time_over_target = df_over_target['작업간격_초'].sum()
 
-                            # 총 작업수 (+1 보정)
-                            job_count = count_under_target + count_over_target + 1
+                            # 💡 [지적사항 수정 완료] +1 보정을 제거하고 두 구간의 합을 순수 작업수로 적용합니다.
+                            job_count = count_under_target + count_over_target
 
-                            # 생산성 공식 정정 반영
+                            # 생산성 공식에서도 분자 보정치(+1) 완전 제거
                             if sum_time_under_target > 0:
-                                productivity_sec = (count_under_target + 1) / sum_time_under_target
+                                productivity_sec = count_under_target / sum_time_under_target
                                 productivity_hour = productivity_sec * 3600
                             else:
                                 productivity_sec = 0
@@ -165,12 +169,15 @@ if uploaded_files:
                         sheet2_df = pd.DataFrame(detailed_records)
                         sheet5_df = pd.concat(columns_to_combine, axis=1) if columns_to_combine else pd.DataFrame()
 
-                        # 💡 [필터 추가] 시트1과 시트2 데이터에서 작업자명이 nan이거나 공백인 행만 골라내기
-                        # 원본 시트(시트3, 시트4)에는 빈 값 데이터가 그대로 유지됩니다.
+                        # 작업자명 NaN 값 제외 필터
                         if not sheet1_df.empty:
-                            sheet1_df = sheet1_df[sheet1_df['작업자명'].notna() & (sheet1_df['작업자명'].astype(str).str.strip() != '') & (sheet1_df['작업자명'].astype(str).str.lower() != 'nan')]
+                            sheet1_df = sheet1_df[
+                                sheet1_df['작업자명'].notna() & (sheet1_df['작업자명'].astype(str).str.strip() != '') & (
+                                            sheet1_df['작업자명'].astype(str).str.lower() != 'nan')]
                         if not sheet2_df.empty:
-                            sheet2_df = sheet2_df[sheet2_df['작업자명'].notna() & (sheet2_df['작업자명'].astype(str).str.strip() != '') & (sheet2_df['작업자명'].astype(str).str.lower() != 'nan')]
+                            sheet2_df = sheet2_df[
+                                sheet2_df['작업자명'].notna() & (sheet2_df['작업자명'].astype(str).str.strip() != '') & (
+                                            sheet2_df['작업자명'].astype(str).str.lower() != 'nan')]
 
                         # =====================================================================
                         # [단계 3] 엑셀 파일 내 시트 이름 동적 생성 후 내보내기
@@ -189,15 +196,8 @@ if uploaded_files:
             st.balloons()
             st.success("분석 성공")
 
-            # 다운로드 파일 이름 빌드 규칙
-            if len(file_names_summary) > 1:
-                display_name = f"{file_names_summary[0]}_외_{len(file_names_summary) - 1}개파일_"
-            else:
-                display_name = f"{file_names_summary[0]}"
-
-            final_download_name = f"{display_name}작업자별 생산성분석_{target_seconds}초기준 결과.xlsx"
-
             # 다운로드 버튼 제공
+            final_download_name = f"{file_names_summary[0] if len(file_names_summary) == 1 else file_names_summary[0] + '_외'}작업자별 생산성분석_{target_seconds}초기준 결과.xlsx"
             st.download_button(
                 label="📥 가공된 종합 분석 엑셀 파일 다운로드",
                 data=processed_data,
@@ -207,4 +207,3 @@ if uploaded_files:
 
         except Exception as e:
             st.error(f"⚠️처리 중 에러가 발생했습니다: {e}")
-            st.info("엑셀 파일의 열 이름(최초입고처리자, 사입바코드, 최초입고처리시간 등)을 다시 확인해 주세요.")
